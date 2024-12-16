@@ -1,0 +1,14 @@
+plugins {
+    id 'java'
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // SQLite JDBC
+    implementation 'org.xerial:sqlite-jdbc:3.36.0.3'
+    // JUnit for Testing
+    testImplementation 'junit:junit:4.13.2'
+}

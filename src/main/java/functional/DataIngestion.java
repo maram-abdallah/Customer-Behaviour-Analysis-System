@@ -3,18 +3,19 @@ package functional;
 import java.io.*;
 import java.sql.*;
 import java.util.*;
-import java.util.stream.Collectors;
 
 public class DataIngestion {
-    private List<Map<String, String>> dataset; // Stores the dataset as a list of key-value pairs (column:value)
+    private List<Map<String, String>> dataset; // Dynamic dataset storage
+    private static final String DB_URL = "jdbc:sqlite:src/main/resources/datasets/customer_behavior.db";
 
     public DataIngestion() {
         this.dataset = new ArrayList<>();
     }
 
-    // Import dataset from CSV or TXT file
-    public boolean importData(String filePath) {
+    // Import dataset (supports both CSV and TXT)
+    public boolean importData(String filePath, String delimiter) {
         String fileExtension = getFileExtension(filePath);
+
         if (!fileExtension.equals("csv") && !fileExtension.equals("txt")) {
             System.out.println("Unsupported file format. Please provide a CSV or TXT file.");
             return false;
@@ -27,13 +28,15 @@ public class DataIngestion {
                 return false;
             }
 
-            String[] headers = headerLine.split(",");
+            String[] headers = headerLine.split(delimiter);
             String line;
             while ((line = reader.readLine()) != null) {
-                String[] values = line.split(",");
+                String[] values = line.split(delimiter);
+                if (values.length != headers.length) continue;
+
                 Map<String, String> row = new HashMap<>();
                 for (int i = 0; i < headers.length; i++) {
-                    row.put(headers[i], values[i]);
+                    row.put(headers[i].trim(), values[i].trim());
                 }
                 dataset.add(row);
             }
@@ -46,102 +49,82 @@ public class DataIngestion {
         }
     }
 
-    // Clean and preprocess the dataset
+    // Clean data: Remove rows with missing values
     public void cleanData() {
         System.out.println("Cleaning data...");
-        handleMissingValues();
-        removeOutliers();
-        normalizeNumericalData();
-        System.out.println("Data cleaning completed.");
+        dataset.removeIf(row -> row.values().stream().anyMatch(String::isEmpty));
+        System.out.println("Data cleaning completed. Remaining rows: " + dataset.size());
     }
 
-    // Store cleaned data in SQLite database
-    public void storeData(String databaseUrl, String tableName) {
-        try (Connection conn = DriverManager.getConnection(databaseUrl)) {
-            // Create table if not exists
-            createTable(conn, tableName);
+    // Store data into the database
+    public void storeData(String tableName) {
+        if (dataset.isEmpty()) {
+            System.out.println("Dataset is empty. Nothing to store.");
+            return;
+        }
 
-            // Insert cleaned data
+        try (Connection connection = DriverManager.getConnection(DB_URL)) {
+            createTable(connection, tableName);
+
             for (Map<String, String> row : dataset) {
                 String sql = buildInsertQuery(tableName, row);
-                try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
                     pstmt.executeUpdate();
                 }
             }
-
-            System.out.println("Data stored successfully in the database.");
+            System.out.println("Data stored successfully in the table: " + tableName);
         } catch (SQLException e) {
             System.out.println("Error storing data in the database: " + e.getMessage());
         }
     }
 
-    // Handle missing values by removing rows with missing data
-    private void handleMissingValues() {
-        dataset = dataset.stream()
-                .filter(row -> row.values().stream().noneMatch(String::isEmpty))
-                .collect(Collectors.toList());
-        System.out.println("Removed rows with missing values.");
-    }
-
-    // Detect and remove outliers (example: remove rows with negative values)
-    private void removeOutliers() {
-        dataset = dataset.stream()
-                .filter(row -> row.values().stream().noneMatch(value -> isNegativeNumber(value)))
-                .collect(Collectors.toList());
-        System.out.println("Removed rows with outliers.");
-    }
-
-    // Normalize numerical data (scaling between 0 and 1)
-    private void normalizeNumericalData() {
-        // Assuming numerical columns are "ProductPrice" and "Quantity"
-        List<String> numericalColumns = Arrays.asList("ProductPrice", "Quantity");
-        for (String column : numericalColumns) {
-            List<Double> values = dataset.stream()
-                    .map(row -> Double.parseDouble(row.get(column)))
-                    .collect(Collectors.toList());
-
-            double min = Collections.min(values);
-            double max = Collections.max(values);
-
-            for (Map<String, String> row : dataset) {
-                double originalValue = Double.parseDouble(row.get(column));
-                double normalizedValue = (originalValue - min) / (max - min);
-                row.put(column, String.valueOf(normalizedValue));
-            }
-        }
-        System.out.println("Normalized numerical data.");
-    }
-
-    // Helper method to create a table in the database
-    private void createTable(Connection conn, String tableName) throws SQLException {
-        String sql = "CREATE TABLE IF NOT EXISTS " + tableName + " (";
+    // Helper method to dynamically create a table
+    private void createTable(Connection connection, String tableName) throws SQLException {
+        StringBuilder sql = new StringBuilder("CREATE TABLE IF NOT EXISTS " + tableName + " (");
         for (String column : dataset.get(0).keySet()) {
-            sql += column + " TEXT, ";
+            sql.append(column).append(" TEXT, ");
         }
-        sql = sql.substring(0, sql.length() - 2) + ");"; // Remove last comma and add closing parenthesis
-        try (Statement stmt = conn.createStatement()) {
-            stmt.execute(sql);
+        sql.delete(sql.length() - 2, sql.length()).append(");");
+
+        try (Statement statement = connection.createStatement()) {
+            statement.execute(sql.toString());
+            System.out.println("Table '" + tableName + "' created or already exists.");
         }
     }
 
-    // Helper method to build an SQL insert query
+    // Helper method to build dynamic insert queries
     private String buildInsertQuery(String tableName, Map<String, String> row) {
         String columns = String.join(", ", row.keySet());
-        String values = row.values().stream().map(value -> "'" + value + "'").collect(Collectors.joining(", "));
-        return "INSERT INTO " + tableName + " (" + columns + ") VALUES (" + values + ");";
+        String values = row.values().stream()
+                .map(value -> "'" + value.replace("'", "''") + "'")
+                .reduce((a, b) -> a + ", " + b)
+                .orElse("");
+
+        return "INSERT OR IGNORE INTO " + tableName + " (" + columns + ") VALUES (" + values + ");";
     }
 
-    // Helper method to get the file extension
+    // Helper to get file extension
     private String getFileExtension(String filePath) {
         return filePath.substring(filePath.lastIndexOf(".") + 1).toLowerCase();
     }
 
-    // Helper method to check if a string is a negative number
-    private boolean isNegativeNumber(String value) {
-        try {
-            return Double.parseDouble(value) < 0;
-        } catch (NumberFormatException e) {
-            return false;
+    // Test the DataIngestion class
+    public static void main(String[] args) {
+        DataIngestion ingestion = new DataIngestion();
+        String csvPath = "src/main/resources/datasets/sample_data.csv";
+        String txtPath = "src/main/resources/datasets/sample_data.txt";
+        String tableName = "CustomerData";
+
+        System.out.println("=== Importing CSV File ===");
+        if (ingestion.importData(csvPath, ",")) {
+            ingestion.cleanData();
+            ingestion.storeData(tableName);
+        }
+
+        System.out.println("\n=== Importing TXT File ===");
+        if (ingestion.importData(txtPath, "\\t")) { // Assuming tab-delimited TXT file
+            ingestion.cleanData();
+            ingestion.storeData(tableName);
         }
     }
 }

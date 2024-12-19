@@ -1,83 +1,137 @@
 package functional;
 
-import java.util.*;
-import java.util.stream.Collectors;
+import weka.associations.Apriori;
+import weka.classifiers.Evaluation;
+import weka.classifiers.functions.LinearRegression;
+import weka.classifiers.trees.RandomForest;
+import weka.clusterers.SimpleKMeans;
+import weka.core.Instances;
+import weka.core.converters.ConverterUtils;
+import weka.filters.Filter;
+import weka.filters.unsupervised.attribute.Remove;
+
+import java.util.List;
+import java.util.ArrayList;
+import java.util.Map;
+import java.util.Random;
 
 public class MLAnalysis {
 
-    // Predict customer churn using a simple threshold-based rule (placeholder logic)
-    public Map<String, Double> predictChurn(List<Map<String, String>> data) {
-        Map<String, Double> churnPredictions = new HashMap<>();
+    private ReportingAndDashboards reporting;
 
-        for (Map<String, String> row : data) {
-            // Example logic: churn probability based on low total purchase amount
-            double totalPurchase = Double.parseDouble(row.get("TotalPurchaseAmount"));
-            double churnProbability = totalPurchase < 100 ? 0.8 : 0.2; // Placeholder threshold
-            churnPredictions.put(row.get("CustomerID"), churnProbability);
-        }
-
-        System.out.println("Churn prediction completed.");
-        return churnPredictions;
+    public MLAnalysis(ReportingAndDashboards reporting) {
+        this.reporting = reporting;
     }
 
-    // Calculate Customer Lifetime Value (CLV) based on Recency, Frequency, Monetary (RFM) analysis
-    public Map<String, Double> calculateCLV(List<Map<String, String>> data) {
-        Map<String, Double> clvMap = new HashMap<>();
+    // 1. Customer Churn Prediction
+    public void predictChurn(String filePath) {
+        try {
+            ConverterUtils.DataSource source = new ConverterUtils.DataSource(filePath);
+            Instances dataset = source.getDataSet();
+            if (dataset.classIndex() == -1) dataset.setClassIndex(dataset.numAttributes() - 1);
 
-        for (Map<String, String> row : data) {
-            double frequency = Double.parseDouble(row.get("PurchaseFrequency"));
-            double monetary = Double.parseDouble(row.get("TotalPurchaseAmount"));
-            double recencyScore = Double.parseDouble(row.get("Recency"));
+            RandomForest model = new RandomForest();
+            model.setNumTrees(100);
+            model.buildClassifier(dataset);
 
-            // Example CLV formula: (Frequency * Monetary) / Recency
-            double clv = (frequency * monetary) / (recencyScore + 1); // Avoid division by zero
-            clvMap.put(row.get("CustomerID"), clv);
+            Evaluation eval = new Evaluation(dataset);
+            eval.crossValidateModel(model, dataset, 10, new Random(1));
+
+            Map<String, Object> results = Map.of(
+                "Accuracy", eval.pctCorrect(),
+                "Summary", eval.toSummaryString()
+            );
+            reporting.addChurnPredictionResults(results);
+
+        } catch (Exception e) {
+            System.err.println("Error predicting churn: " + e.getMessage());
         }
-
-        System.out.println("Customer Lifetime Value calculation completed.");
-        return clvMap;
     }
 
-    // Generate product recommendations based on collaborative filtering (placeholder logic)
-    public List<String> generateRecommendations(String customerID, Map<String, List<String>> purchaseHistory) {
-        List<String> recommendations = new ArrayList<>();
+    // 2. Customer Lifetime Value (CLV) Prediction
+    public void predictCLV(String filePath) {
+        try {
+            ConverterUtils.DataSource source = new ConverterUtils.DataSource(filePath);
+            Instances dataset = source.getDataSet();
+            if (dataset.classIndex() == -1) dataset.setClassIndex(dataset.numAttributes() - 1);
 
-        // Find similar customers based on purchase history
-        List<String> currentCustomerPurchases = purchaseHistory.get(customerID);
-        if (currentCustomerPurchases == null) {
-            System.out.println("No purchase history available for customer ID: " + customerID);
-            return recommendations;
+            Remove remove = new Remove();
+            remove.setAttributeIndices("1");
+            remove.setInputFormat(dataset);
+            Instances filteredData = Filter.useFilter(dataset, remove);
+
+            LinearRegression model = new LinearRegression();
+            model.buildClassifier(filteredData);
+
+            Evaluation eval = new Evaluation(filteredData);
+            eval.crossValidateModel(model, filteredData, 10, new Random(1));
+
+            Map<String, Object> results = Map.of(
+                "RegressionModel", model.toString(),
+                "MAE", eval.meanAbsoluteError(),
+                "RMSE", eval.rootMeanSquaredError()
+            );
+            reporting.addCLVResults(results);
+
+        } catch (Exception e) {
+            System.err.println("Error predicting CLV: " + e.getMessage());
         }
-
-        for (Map.Entry<String, List<String>> entry : purchaseHistory.entrySet()) {
-            if (!entry.getKey().equals(customerID)) {
-                for (String product : entry.getValue()) {
-                    if (!currentCustomerPurchases.contains(product)) {
-                        recommendations.add(product);
-                    }
-                }
-            }
-        }
-
-        // Remove duplicates and return top recommendations
-        recommendations = recommendations.stream().distinct().limit(5).collect(Collectors.toList());
-        System.out.println("Recommendations generated for customer ID: " + customerID);
-        return recommendations;
     }
 
-    // Analyze trends using placeholder time-series analysis logic
-    public Map<String, Double> analyzeTrends(List<Map<String, String>> data) {
-        Map<String, Double> trends = new HashMap<>();
+    // 3. Personalized Recommendations
+    public void generateRecommendations(String filePath, String customerID) {
+        try {
+            ConverterUtils.DataSource source = new ConverterUtils.DataSource(filePath);
+            Instances data = source.getDataSet();
 
-        // Example: Calculate average monthly sales for each month
-        for (Map<String, String> row : data) {
-            String month = row.get("PurchaseDate").split("-")[1]; // Extract month from "YYYY-MM-DD"
-            double purchaseAmount = Double.parseDouble(row.get("TotalPurchaseAmount"));
-            trends.put(month, trends.getOrDefault(month, 0.0) + purchaseAmount);
+            Apriori apriori = new Apriori();
+            apriori.buildAssociations(data);
+
+            // Filter recommendations for the specific customer
+            List<String> customerProducts = getCustomerProducts(data, customerID);
+            List<String> recommendations = filterRecommendations(apriori, customerProducts);
+
+            reporting.addRecommendations(customerID, recommendations);
+
+        } catch (Exception e) {
+            System.err.println("Error generating recommendations: " + e.getMessage());
         }
+    }
 
-        System.out.println("Trend analysis completed.");
-        return trends;
+    private List<String> getCustomerProducts(Instances data, String customerID) {
+        // Mock logic for retrieving customer products
+        return List.of("ProductA", "ProductB");
+    }
+
+    private List<String> filterRecommendations(Apriori apriori, List<String> customerProducts) {
+        // Mock filtering logic based on Apriori rules
+        return List.of("ProductC", "ProductD");
+    }
+
+    // 4. Time-Series Trend Analysis
+    public void analyzeTrends(String filePath) {
+        try {
+            ConverterUtils.DataSource source = new ConverterUtils.DataSource(filePath);
+            Instances dataset = source.getDataSet();
+
+            Remove remove = new Remove();
+            remove.setAttributeIndices("1");
+            remove.setInputFormat(dataset);
+            Instances numericData = Filter.useFilter(dataset, remove);
+
+            SimpleKMeans kMeans = new SimpleKMeans();
+            kMeans.setNumClusters(3);
+            kMeans.buildClusterer(numericData);
+
+            Map<String, Object> trends = Map.of(
+                "Clusters", kMeans.getClusterCentroids()
+            );
+            reporting.addTrends(trends);
+
+        } catch (Exception e) {
+            System.err.println("Error analyzing trends: " + e.getMessage());
+        }
     }
 }
+
 

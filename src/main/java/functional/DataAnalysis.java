@@ -1,105 +1,125 @@
 package functional;
 
-import java.util.*;
-import org.jfree.chart.*;
-import org.jfree.chart.plot.*;
-import org.jfree.data.category.*;
+import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
+import org.jfree.chart.ChartFactory;
+import org.jfree.chart.ChartPanel;
+import org.jfree.chart.JFreeChart;
+import org.jfree.chart.plot.PlotOrientation;
+import org.jfree.data.category.DefaultCategoryDataset;
 import org.jfree.data.general.DefaultPieDataset;
+import weka.associations.Apriori;
+import weka.clusterers.SimpleKMeans;
+import weka.core.Instances;
+import weka.core.converters.ConverterUtils;
+
+import javax.swing.*;
+import java.util.*;
+import java.util.stream.Collectors;
 
 public class DataAnalysis {
 
-    // Method to calculate descriptive statistics
-    public Map<String, Double> calculateStatistics(List<Double> data) {
-        Map<String, Double> statistics = new HashMap<>();
+    // Descriptive Statistics
+    public void calculateDescriptiveStatistics(List<Double> data) {
+        DescriptiveStatistics stats = new DescriptiveStatistics();
+        data.forEach(stats::addValue);
 
-        if (data == null || data.isEmpty()) {
-            System.out.println("No data available for analysis.");
-            return statistics;
-        }
-
-        double sum = data.stream().mapToDouble(Double::doubleValue).sum();
-        double mean = sum / data.size();
-        double variance = data.stream().mapToDouble(value -> Math.pow(value - mean, 2)).sum() / data.size();
-        double stdDev = Math.sqrt(variance);
-
-        statistics.put("Mean", mean);
-        statistics.put("Variance", variance);
-        statistics.put("Standard Deviation", stdDev);
-        System.out.println("Descriptive statistics calculated.");
-        return statistics;
+        System.out.println("Mean: " + stats.getMean());
+        System.out.println("Median: " + calculateMedian(data));
+        System.out.println("Standard Deviation: " + stats.getStandardDeviation());
+        System.out.println("Variance: " + stats.getVariance());
+        System.out.println("Range: " + (stats.getMax() - stats.getMin()));
     }
 
-    // Method to generate bar chart
-    public void createBarChart(Map<String, Integer> data, String title, String xAxisLabel, String yAxisLabel) {
-        DefaultCategoryDataset dataset = new DefaultCategoryDataset();
+    private double calculateMedian(List<Double> data) {
+        List<Double> sortedData = data.stream().sorted().collect(Collectors.toList());
+        int size = sortedData.size();
+        return size % 2 == 0 ? (sortedData.get(size / 2 - 1) + sortedData.get(size / 2)) / 2 : sortedData.get(size / 2);
+    }
 
-        data.forEach((key, value) -> dataset.addValue(value, "Frequency", key));
+    // Frequency Distribution for Categorical Data
+    public void frequencyDistribution(List<String> categories) {
+        Map<String, Long> frequency = categories.stream()
+                .collect(Collectors.groupingBy(category -> category, Collectors.counting()));
+        frequency.forEach((key, value) -> System.out.println(key + ": " + value));
+    }
+
+    // Bar Chart Visualization
+    public void createBarChart(Map<String, Integer> data, String title, String categoryAxis, String valueAxis) {
+        DefaultCategoryDataset dataset = new DefaultCategoryDataset();
+        data.forEach(dataset::addValue);
 
         JFreeChart barChart = ChartFactory.createBarChart(
-                title, xAxisLabel, yAxisLabel, dataset,
-                PlotOrientation.VERTICAL, false, true, false);
+                title, categoryAxis, valueAxis, dataset, PlotOrientation.VERTICAL, true, true, false);
 
-        ChartFrame chartFrame = new ChartFrame(title, barChart);
-        chartFrame.pack();
-        chartFrame.setVisible(true);
-        System.out.println("Bar chart created.");
+        displayChart(barChart, title);
     }
 
-    // Method to generate pie chart
+    // Pie Chart Visualization
     public void createPieChart(Map<String, Integer> data, String title) {
         DefaultPieDataset dataset = new DefaultPieDataset();
-
         data.forEach(dataset::setValue);
 
-        JFreeChart pieChart = ChartFactory.createPieChart(
-                title, dataset, true, true, false);
-
-        ChartFrame chartFrame = new ChartFrame(title, pieChart);
-        chartFrame.pack();
-        chartFrame.setVisible(true);
-        System.out.println("Pie chart created.");
+        JFreeChart pieChart = ChartFactory.createPieChart(title, dataset, true, true, false);
+        displayChart(pieChart, title);
     }
 
-    // Method for market basket analysis (simple example using association rules)
-    public Map<String, String> performAssociationRuleMining(List<List<String>> transactions) {
-        Map<String, String> rules = new HashMap<>();
+    // Display JFreeChart in Swing window
+    private void displayChart(JFreeChart chart, String title) {
+        JFrame frame = new JFrame(title);
+        frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        frame.add(new ChartPanel(chart));
+        frame.pack();
+        frame.setVisible(true);
+    }
 
-        if (transactions == null || transactions.isEmpty()) {
-            System.out.println("No transactions available for market basket analysis.");
-            return rules;
+    // Market Basket Analysis using Weka's Apriori Algorithm
+    public void marketBasketAnalysis(String filePath) {
+        try {
+            ConverterUtils.DataSource source = new ConverterUtils.DataSource(filePath);
+            Instances data = source.getDataSet();
+
+            Apriori apriori = new Apriori();
+            apriori.buildAssociations(data);
+            System.out.println("Market Basket Analysis Rules: ");
+            System.out.println(apriori);
+        } catch (Exception e) {
+            e.printStackTrace();
         }
+    }
 
-        // Simple example of creating rules based on item co-occurrence
-        for (List<String> transaction : transactions) {
-            for (String itemA : transaction) {
-                for (String itemB : transaction) {
-                    if (!itemA.equals(itemB)) {
-                        rules.put(itemA, itemB);
-                    }
-                }
+    // Customer Segmentation using K-Means Clustering
+    public void customerSegmentation(String filePath, int numClusters) {
+        try {
+            // Load dataset
+            ConverterUtils.DataSource source = new ConverterUtils.DataSource(filePath);
+            Instances data = source.getDataSet();
+
+            // Ensure that the dataset is numeric and ready for clustering
+            if (data.classIndex() == -1) {
+                data.setClassIndex(data.numAttributes() - 1); // Set last column as class
             }
+
+            // Build K-Means clustering model
+            SimpleKMeans kMeans = new SimpleKMeans();
+            kMeans.setNumClusters(numClusters); // Set number of clusters
+            kMeans.buildClusterer(data);
+
+            // Display cluster assignments
+            System.out.println("Cluster Centers:");
+            for (double[] center : kMeans.getClusterCentroids()) {
+                System.out.println(Arrays.toString(center));
+            }
+
+            System.out.println("\nCluster Assignments:");
+            for (int i = 0; i < data.numInstances(); i++) {
+                System.out.println("Instance " + i + " -> Cluster " + kMeans.clusterInstance(data.instance(i)));
+            }
+
+            System.out.println("\nK-Means clustering completed successfully!");
+
+        } catch (Exception e) {
+            System.err.println("Error performing customer segmentation: " + e.getMessage());
+            e.printStackTrace();
         }
-
-        System.out.println("Market basket analysis completed.");
-        return rules;
-    }
-
-    // Method for clustering (example: K-Means Clustering)
-    public Map<Integer, List<List<Double>>> runClustering(List<List<Double>> data, int k) {
-        Map<Integer, List<List<Double>>> clusters = new HashMap<>();
-
-        if (data == null || data.isEmpty()) {
-            System.out.println("No data available for clustering.");
-            return clusters;
-        }
-
-        // Placeholder for K-Means clustering logic
-        // Assume each cluster is represented by an integer and contains a list of points
-        for (int i = 0; i < k; i++) {
-            clusters.put(i, new ArrayList<>());
-        }
-
-        System.out.println("Clustering completed (placeholder logic).");
-        return clusters;
     }
 }

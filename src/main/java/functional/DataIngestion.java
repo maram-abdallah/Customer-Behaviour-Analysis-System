@@ -108,7 +108,7 @@ public class DataIngestion {
         return filePath.substring(filePath.lastIndexOf(".") + 1).toLowerCase();
     }
 
-    // Test the DataIngestion class
+    // Test the DataIngestion class ,,,,, TESTING ONLY ,,, REMOVE LATER 
     public static void main(String[] args) {
         DataIngestion ingestion = new DataIngestion();
         String csvPath = "src/main/resources/datasets/sample_data.csv";

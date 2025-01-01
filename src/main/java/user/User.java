@@ -4,22 +4,22 @@ public abstract class User {
     protected String userID;
     protected String username;
 
+    // Constructor
     public User(String userID, String username) {
         this.userID = userID;
         this.username = username;
     }
 
-    // Abstract methods for login and logout
-    public abstract void login();
-
-    public abstract void logout();
-
-    // Getter methods
-    public String getUserID() {
-        return userID;
+    // Shared Methods
+    public void login() {
+        System.out.println(username + " (ID: " + userID + ") has logged in.");
     }
 
-    public String getUsername() {
-        return username;
+    public void logout() {
+        System.out.println(username + " (ID: " + userID + ") has logged out.");
     }
+
+    // Abstract Methods
+    public abstract void performRole();
 }
+

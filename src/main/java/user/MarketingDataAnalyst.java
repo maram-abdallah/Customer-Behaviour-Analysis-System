@@ -4,6 +4,7 @@ import functional.DataAnalysis;
 import functional.MLAnalysis;
 import functional.ReportingAndDashboards;
 
+import java.util.List;
 import java.util.Map;
 
 public class MarketingDataAnalyst extends User {
@@ -13,45 +14,41 @@ public class MarketingDataAnalyst extends User {
     }
 
     @Override
-    public void login() {
-        System.out.println("Marketing Analyst " + username + " logged in.");
+    public void performRole() {
+        System.out.println("Marketing Data Analyst role: Analyze data and generate insights.");
     }
 
-    @Override
-    public void logout() {
-        System.out.println("Marketing Analyst " + username + " logged out.");
-    }
-
-    // Perform descriptive statistics
+    // Descriptive Analysis
     public void performDescriptiveAnalysis(DataAnalysis dataAnalysis, Map<String, Integer> data) {
-        System.out.println("Performing descriptive statistics...");
-        Map<String, Double> stats = dataAnalysis.calculateStatistics(data.values().stream().mapToDouble(Integer::doubleValue).boxed().toList());
+        System.out.println("Performing descriptive analysis...");
+        Map<String, Double> stats = dataAnalysis.calculateStatistics(data);
         stats.forEach((key, value) -> System.out.println(key + ": " + value));
     }
 
-    // Generate visualizations
-    public void generateVisualizations(DataAnalysis dataAnalysis, Map<String, Integer> metrics) {
-        System.out.println("Generating bar chart...");
-        dataAnalysis.createBarChart(metrics, "Sales Metrics", "Categories", "Sales");
+    // Generate Visualizations
+    public void generateVisualizations(DataAnalysis dataAnalysis, Map<String, Integer> data) {
+        System.out.println("Generating visualizations...");
+        dataAnalysis.createBarChart(data, "Category Distribution", "Category", "Value");
     }
 
-    // Perform churn prediction
-    public void runChurnPrediction(MLAnalysis mlAnalysis, List<Map<String, String>> dataset) {
+    // Run Churn Prediction
+    public void runChurnPrediction(MLAnalysis mlAnalysis, List<Map<String, String>> data) {
         System.out.println("Running churn prediction...");
-        Map<String, Double> churnPredictions = mlAnalysis.predictChurn(dataset);
-        churnPredictions.forEach((key, value) -> System.out.println("Customer " + key + " Churn Probability: " + value));
+        Map<String, Double> predictions = mlAnalysis.predictChurn(data);
+        predictions.forEach((customerID, churnProb) -> 
+            System.out.println("Customer " + customerID + " churn probability: " + churnProb));
     }
 
-    // Perform customer segmentation
+    // Perform Segmentation
     public void performSegmentation(DataAnalysis dataAnalysis, List<List<Double>> data) {
         System.out.println("Performing customer segmentation...");
-        Map<Integer, List<List<Double>>> clusters = dataAnalysis.runClustering(data, 3);
-        clusters.forEach((key, value) -> System.out.println("Cluster " + key + ": " + value));
+        List<List<Double>> clusters = dataAnalysis.runClustering(data, 3);
+        clusters.forEach(cluster -> System.out.println("Cluster: " + cluster));
     }
 
-    // Generate reports
-    public void generateReport(ReportingAndDashboards reporting, String format, Map<String, Object> metrics) {
-        System.out.println("Generating report in " + format + " format...");
-        reporting.generateReport(format, metrics);
+    // Generate Dashboard
+    public void generateDashboard(ReportingAndDashboards reporting, Map<String, Integer> metrics) {
+        System.out.println("Generating dashboard...");
+        reporting.createDashboard(metrics);
     }
 }

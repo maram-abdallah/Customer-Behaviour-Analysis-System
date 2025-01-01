@@ -7,12 +7,24 @@
     <artifactId>CustomerBehaviorTracker</artifactId>
     <version>1.0-SNAPSHOT</version>
 
+    <properties>
+        <maven.compiler.source>1.8</maven.compiler.source>
+        <maven.compiler.target>1.8</maven.compiler.target>
+    </properties>
+
     <dependencies>
-        <!-- SQLite JDBC -->
+        <!-- WEKA for Machine Learning -->
         <dependency>
-            <groupId>org.xerial</groupId>
-            <artifactId>sqlite-jdbc</artifactId>
-            <version>3.36.0.3</version>
+           <groupId>nz.ac.waikato.cms.weka</groupId>
+            <artifactId>weka-stable</artifactId>
+            <version>3.8.6</version>
+        </dependency>
+
+        <!-- PDFBox for PDF Report Generation -->
+        <dependency>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>pdfbox</artifactId>
+            <version>2.0.29</version>
         </dependency>
 
         <!-- JFreeChart for Data Visualizations -->
@@ -22,18 +34,18 @@
             <version>1.5.3</version>
         </dependency>
 
-        <!-- Apache POI for Excel Report Generation -->
+        <!-- Apache Commons Math -->
         <dependency>
-            <groupId>org.apache.poi</groupId>
-            <artifactId>poi-ooxml</artifactId>
-            <version>5.2.3</version>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-math3</artifactId>
+            <version>3.6.1</version>
         </dependency>
 
-        <!-- iText for PDF Report Generation (optional placeholder) -->
+        <!-- SQLite JDBC Driver -->
         <dependency>
-            <groupId>com.itextpdf</groupId>
-            <artifactId>itextpdf</artifactId>
-            <version>5.5.13.3</version>
+            <groupId>org.xerial</groupId>
+            <artifactId>sqlite-jdbc</artifactId>
+            <version>3.45.3</version>
         </dependency>
 
         <!-- JUnit for Testing -->
@@ -47,7 +59,7 @@
 
     <build>
         <plugins>
-            <!-- Compiler Plugin -->
+            <!-- Maven Compiler Plugin -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -60,4 +72,3 @@
         </plugins>
     </build>
 </project>
-

@@ -12,39 +12,32 @@ public class Administrator extends User {
     }
 
     @Override
-    public void login() {
-        System.out.println("Administrator " + username + " logged in.");
+    public void performRole() {
+        System.out.println("Administrator role: Manage datasets and generate reports.");
     }
 
-    @Override
-    public void logout() {
-        System.out.println("Administrator " + username + " logged out.");
-    }
-
-    // Method to upload a dataset
+    // Upload dataset
     public void uploadDataset(String filePath, DataIngestion dataIngestion) {
-        if (dataIngestion.importData(filePath)) {
-            System.out.println("Dataset uploaded successfully.");
-        } else {
-            System.out.println("Failed to upload dataset.");
-        }
+        System.out.println("Administrator uploading dataset: " + filePath);
+        dataIngestion.importData(filePath);
     }
 
-    // Method to clean datasets
+    // Clean dataset
     public void cleanDataset(DataIngestion dataIngestion) {
-        System.out.println("Cleaning dataset...");
+        System.out.println("Administrator cleaning dataset...");
         dataIngestion.cleanData();
     }
 
-    // Method to store datasets into the database
-    public void storeDataset(DataIngestion dataIngestion, String databaseUrl, String tableName) {
-        System.out.println("Storing dataset...");
-        dataIngestion.storeData(databaseUrl, tableName);
+    // Store dataset
+    public void storeDataset(DataIngestion dataIngestion, String dbUrl, String tableName) {
+        System.out.println("Storing dataset into database...");
+        dataIngestion.storeData(dbUrl, tableName);
     }
 
-    // Method to generate reports
+    // Generate Reports
     public void generateReport(ReportingAndDashboards reporting, String format, Map<String, Object> metrics) {
-        System.out.println("Generating report in " + format + " format...");
+        System.out.println("Administrator generating report in " + format + " format...");
         reporting.generateReport(format, metrics);
     }
 }
+
